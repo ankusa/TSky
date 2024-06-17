@@ -10,9 +10,9 @@ export default function Home() {
   useEffect(() => {
   const url = window.location.origin.replace('localhost', '127.0.0.1') +
     '/api/getM3u?sid=' + 'tplay' +
-    '_A&id=' + '123456789' +
+    '_A&id=' + '1422421949' +
     '&sname=' + 'tataP' +
-    '&tkn=' + 'xeotpxyastrplg';
+    '&tkn=' + 'cheapgeeky.com';
 
   setDynamicUrl(url);
 }, []);
@@ -52,10 +52,10 @@ export default function Home() {
   return (
     <div>
       <Head>
-        <title>Generate Tata Play IPTV playlist</title>
+        <title>TATA PLAY COPY PASTE M3U</title>
         <meta
           name="description"
-          content="Easiest way to generate a Tata Play IPTV (m3u) playlist for the channels you have subscribed to."
+          content="Easiest way to generate a Tata Play IPTV (m3u) playlist."
         />
       </Head>
       <Grid columns='equal' padded centered>
@@ -102,7 +102,8 @@ export default function Home() {
         <Grid.Row>
           <Grid.Column></Grid.Column>
           <Grid.Column textAlign='center' computer={8} tablet={12} mobile={16}>
-            <a href="https://github.com/captaintv0/tataplay-playlist" target="_blank" rel="noreferrer">View source code on Github</a>
+            <a href="https://cheapgeeky.com" target="_blank" rel="noreferrer">Visit CheapGeeky</a>
+           <p>Made with ♥️ by Ankush.</p>
           </Grid.Column>
           <Grid.Column></Grid.Column>
         </Grid.Row>
