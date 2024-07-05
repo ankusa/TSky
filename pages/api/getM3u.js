@@ -47,38 +47,18 @@ const getUserChanDetails = async () => {
         return obj;
     }
 
-    // Add additional SonyLiv channels from provided URL
-    try {
-        const responseAdditionalChannels = await fetch("https://rentry.co/sonyliv/raw");
-        const additionalChannels = await responseAdditionalChannels.json();
-
-        additionalChannels.forEach(channel => {
-            let rearrangedChannel = {
-                id: channel.tvg_id,
-                name: channel.name,
-                tvg_id: channel.tvg_id,
-                group_title: channel.group_title,
-                tvg_logo: channel.tvg_logo,
-                stream_url: channel.stream_url,
-                license_url: channel.license_url,
-                stream_headers: channel.stream_headers,
-                drm: channel.drm,
-                is_mpd: channel.is_mpd,
-                kid_in_mpd: channel.kid_in_mpd,
-                hmac_required: channel.hmac_required,
-                key_extracted: channel.key_extracted,
-                pssh: channel.pssh,
-                clearkey: channel.clearkey,
-                hma: channel.hma
-            };
-            obj.list.push(rearrangedChannel);
-        });
-
-    } catch (error) {
-        console.error('Error fetching additional channels:', error);
-    }
-
     return obj;
+};
+
+const fetchSonyLivChannels = async () => {
+    try {
+        const responseSonyLiv = await fetch("https://rentry.co/sonyliv/raw");
+        const sonyLivChannels = await responseSonyLiv.json();
+        return sonyLivChannels;
+    } catch (error) {
+        console.error('Error fetching SonyLiv channels:', error);
+        return [];
+    }
 };
 
 const generateM3u = async () => {
@@ -87,6 +67,12 @@ const generateM3u = async () => {
     try {
         let userChanDetails = await getUserChanDetails();
         let chansList = userChanDetails.list;
+
+        // Fetch additional SonyLiv channels
+        const sonyLivChannels = await fetchSonyLivChannels();
+
+        // Merge SonyLiv channels into chansList
+        chansList = [...chansList, ...sonyLivChannels];
 
         m3uStr = '#EXTM3U x-tvg-url="https://raw.githubusercontent.com/mitthu786/tvepg/main/tataplay/epg.xml.gz"\n\n';
 
