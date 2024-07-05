@@ -1,6 +1,9 @@
 import Head from 'next/head';
 import { useEffect, useState } from 'react';
 import { Button, Grid, Header, Message, Segment } from 'semantic-ui-react';
+import axios from 'axios';
+
+const BITLY_API_TOKEN = '068dfecf9be53747723678426ca6758a0c9df94d'; // Replace with your Bitly API token
 
 export default function Home() {
   const [dynamicUrl, setDynamicUrl] = useState("");
@@ -8,24 +11,29 @@ export default function Home() {
   const [err, setErr] = useState("");
 
   useEffect(() => {
-    const generateDynamicUrl = async () => {
-      const requestOptions = {
-        method: 'GET',
-        redirect: 'follow'
-      };
+    async function generateDynamicUrl() {
+      const longUrl = `${window.location.origin.replace('localhost', '127.0.0.1')}/api/getM3u?sid=tplay_A&id=1422421949&sname=tataP&tkn=cheapgeeky.com`;
 
       try {
-        const response = await fetch('/api/generateShortUrl', requestOptions);
-        if (!response.ok) {
-          throw new Error('Failed to generate short URL');
+        const response = await axios.post('https://api-ssl.bitly.com/v4/shorten', {
+          long_url: longUrl
+        }, {
+          headers: {
+            'Authorization': `Bearer ${BITLY_API_TOKEN}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (response.status === 200) {
+          setDynamicUrl(response.data.link);
+        } else {
+          throw new Error('Failed to shorten URL');
         }
-        const result = await response.text();
-        setDynamicUrl(result);
       } catch (error) {
         console.error('Error generating short URL:', error);
         setErr('Failed to generate short URL');
       }
-    };
+    }
 
     generateDynamicUrl();
   }, []);
@@ -37,7 +45,7 @@ export default function Home() {
       redirect: 'follow'
     };
 
-    fetch('/api/getM3u', requestOptions)
+    fetch(window.location.origin + '/api/getM3u?sid=' + 'tplay' + '_' + 'A' + '&id=' + '123456789' + '&sname=' + 'tataP' + '&tkn=' + 'xeotpxyastrplg', requestOptions)
       .then(response => response.text())
       .then(result => {
         console.log(result);
@@ -45,7 +53,8 @@ export default function Home() {
         const blob = new Blob([data], { type: 'text/plain' });
         if (window.navigator.msSaveOrOpenBlob) {
           window.navigator.msSaveBlob(blob, filename);
-        } else {
+        }
+        else {
           const elem = window.document.createElement('a');
           elem.href = window.URL.createObjectURL(blob);
           elem.download = filename;
