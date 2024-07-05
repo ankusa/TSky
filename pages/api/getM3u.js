@@ -41,37 +41,7 @@ const getUserChanDetails = async () => {
             hma: hmacValue
         }));
 
-        // Add SonyLiv channels
-        const sonyLivChannels = [
-            {
-                id: "sony_kal",
-                name: "Sony Kal",
-                group_title: "SonyLiv",
-                tvg_logo: "https://c.evidon.com/pub_logos/2796-2021122219404475.png",
-                stream_url: "https://spt-sonykal-1-us.lg.wurl.tv/playlist.m3u8"
-            },
-            {
-                id: "set_hd",
-                name: "SET HD",
-                group_title: "SonyLiv",
-                tvg_logo: "https://sonypicturesnetworks.com/images/logos/SET-LOGO-HD.png",
-                stream_url: "https://dai.google.com/ssai/event/HgaB-u6rSpGx3mo4Xu3sLw/master.m3u8"
-            },
-            {
-                id: "sony_sab_hd",
-                name: "Sony SAB HD",
-                group_title: "SonyLiv",
-                tvg_logo: "https://sonypicturesnetworks.com/images/logos/SONY%20SAB%20HD_WHITE.png",
-                stream_url: "https://dai.google.com/ssai/event/UI4QFJ_uRk6aLxIcADqa_A/master.m3u8"
-            },
-            // Add more channels here following the same format
-            // Repeat the structure for each additional channel
-        ];
-
-        // Merge existing channels with SonyLiv channels
-        const allChannels = [...channels, ...sonyLivChannels];
-
-        return { channels: allChannels };
+        return { channels };
     } catch (error) {
         console.error('Error fetching or processing data:', error);
         return { channels: [] }; // Return empty array in case of error
@@ -80,12 +50,30 @@ const getUserChanDetails = async () => {
 
 const generateM3u = async () => {
     try {
+        const epgGuide = '#EXTM3U x-tvg-url="https://raw.githubusercontent.com/mitthu786/tvepg/main/tataplay/epg.xml.gz"\n\n';
         const { channels } = await getUserChanDetails();
 
-        // Generate M3U playlist
-        let m3uStr = '#EXTM3U x-tvg-url="https://raw.githubusercontent.com/mitthu786/tvepg/main/tataplay/epg.xml.gz"\n\n';
+        // Filter SonyLiv channels
+        const sonyLivChannels = channels.filter(channel => channel.group_title === "SonyLiv");
 
-        channels.forEach(channel => {
+        // Filter non-SonyLiv channels
+        const otherChannels = channels.filter(channel => channel.group_title !== "SonyLiv");
+
+        // Generate M3U playlist
+        let m3uStr = epgGuide;
+
+        // Append SonyLiv channels
+        sonyLivChannels.forEach(channel => {
+            m3uStr += `#EXTINF:-1 tvg-id="${channel.id}" group-title="${channel.group_title}" tvg-logo="${channel.tvg_logo}", ${channel.name}\n`;
+            m3uStr += '#KODIPROP:inputstream.adaptive.license_type=clearkey\n';
+            m3uStr += `#KODIPROP:inputstream.adaptive.license_key=${channel.clearkey}\n`;
+            m3uStr += `#EXTVLCOPT:http-user-agent=${channel.stream_headers}\n`;
+            m3uStr += `#EXTHTTP:{"cookie":"${channel.hma}"}\n`;
+            m3uStr += `${channel.stream_url}|cookie:${channel.hma}\n\n`;
+        });
+
+        // Append other channels
+        otherChannels.forEach(channel => {
             m3uStr += `#EXTINF:-1 tvg-id="${channel.id}" group-title="${channel.group_title}" tvg-logo="${channel.tvg_logo}", ${channel.name}\n`;
             m3uStr += '#KODIPROP:inputstream.adaptive.license_type=clearkey\n';
             m3uStr += `#KODIPROP:inputstream.adaptive.license_key=${channel.clearkey}\n`;
