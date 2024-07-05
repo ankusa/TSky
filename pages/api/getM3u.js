@@ -1,106 +1,116 @@
 import fetch from "cross-fetch";
 
 const getUserChanDetails = async () => {
-    try {
-        // Fetch HMAC data
-        const responseHmac = await fetch("https://tplayapi.code-crafters.app/321codecrafters/hmac.json");
-        if (!responseHmac.ok) {
-            throw new Error(`Failed to fetch HMAC data. Status: ${responseHmac.status}`);
-        }
-        const data = await responseHmac.json();
-        const hmacValue = data.data.hmac.hdntl.value;
+    let hmacValue;
+    let obj = { list: [] };
 
-        // Fetch channel data
+    try {
+        const responseHmac = await fetch("https://tplayapi.code-crafters.app/321codecrafters/hmac.json");
+        const data = await responseHmac.json();
+        hmacValue = data.data.hmac.hdntl.value;
+    } catch (error) {
+        console.error('Error fetching HMAC data:', error);
+        return obj;
+    }
+
+    try {
         const responseChannels = await fetch("https://tplayapi.code-crafters.app/321codecrafters/fetcher.json");
-        if (!responseChannels.ok) {
-            throw new Error(`Failed to fetch channel data. Status: ${responseChannels.status}`);
-        }
         const cData = await responseChannels.json();
 
-        if (!cData || !cData.data || !Array.isArray(cData.data.channels)) {
-            throw new Error("Invalid channel data format");
+        if (cData && cData.data && Array.isArray(cData.data.channels)) {
+            const flatChannels = cData.data.channels.flat();
+            flatChannels.forEach(channel => {
+                let firstGenre = channel.genres && channel.genres.length > 0 ? channel.genres[0] : null;
+                let rearrangedChannel = {
+                    id: channel.id,
+                    name: channel.name,
+                    tvg_id: channel.tvg_id,
+                    group_title: firstGenre,
+                    tvg_logo: channel.logo_url,
+                    stream_url: channel.manifest_url,
+                    license_url: channel.license_url,
+                    stream_headers: channel.manifest_headers ? (channel.manifest_headers['User-Agent'] || JSON.stringify(channel.manifest_headers)) : null,
+                    drm: channel.drm,
+                    is_mpd: channel.is_mpd,
+                    kid_in_mpd: channel.kid_in_mpd,
+                    hmac_required: channel.hmac_required,
+                    key_extracted: channel.key_extracted,
+                    pssh: channel.pssh,
+                    clearkey: channel.clearkeys ? JSON.stringify(channel.clearkeys[0].base64) : null,
+                    hma: hmacValue
+                };
+                obj.list.push(rearrangedChannel);
+            });
         }
-
-        // Process channels
-        const channels = cData.data.channels.flat().map(channel => ({
-            id: channel.id,
-            name: channel.name,
-            tvg_id: channel.tvg_id,
-            group_title: channel.genres?.[0] || null,
-            tvg_logo: channel.logo_url,
-            stream_url: channel.manifest_url,
-            license_url: channel.license_url,
-            stream_headers: channel.manifest_headers?.['User-Agent'] || null,
-            drm: channel.drm,
-            is_mpd: channel.is_mpd,
-            kid_in_mpd: channel.kid_in_mpd,
-            hmac_required: channel.hmac_required,
-            key_extracted: channel.key_extracted,
-            pssh: channel.pssh,
-            clearkey: channel.clearkeys?.[0]?.base64 || null,
-            hma: hmacValue
-        }));
-
-        return { channels };
     } catch (error) {
-        console.error('Error fetching or processing data:', error);
-        return { channels: [] }; // Return empty array in case of error
+        console.error('Fetch error:', error);
+        return obj;
     }
+
+    // Add additional SonyLiv channels from provided URL
+    try {
+        const responseAdditionalChannels = await fetch("https://rentry.co/sonyindia/raw");
+        const additionalChannels = await responseAdditionalChannels.json();
+
+        additionalChannels.forEach(channel => {
+            let rearrangedChannel = {
+                id: channel.id,
+                name: channel.name,
+                tvg_id: channel.tvg_id,
+                group_title: channel.group_title,
+                tvg_logo: channel.tvg_logo,
+                stream_url: channel.stream_url,
+                license_url: channel.license_url,
+                stream_headers: channel.stream_headers,
+                drm: channel.drm,
+                is_mpd: channel.is_mpd,
+                kid_in_mpd: channel.kid_in_mpd,
+                hmac_required: channel.hmac_required,
+                key_extracted: channel.key_extracted,
+                pssh: channel.pssh,
+                clearkey: channel.clearkey,
+                hma: hmacValue
+            };
+            obj.list.push(rearrangedChannel);
+        });
+
+    } catch (error) {
+        console.error('Error fetching additional channels:', error);
+    }
+
+    return obj;
 };
 
-const generateM3u = async () => {
-    try {
-        const epgGuide = '#EXTM3U x-tvg-url="https://raw.githubusercontent.com/mitthu786/tvepg/main/tataplay/epg.xml.gz"\n\n';
-        const { channels } = await getUserChanDetails();
+const generateM3u = async (ud) => {
+    let m3uStr = '';
 
-        // Filter SonyLiv channels
-        const sonyLivChannels = channels.filter(channel => channel.group_title === "SonyLiv");
+    let userChanDetails = await getUserChanDetails();
+    let chansList = userChanDetails.list;
 
-        // Filter non-SonyLiv channels
-        const otherChannels = channels.filter(channel => channel.group_title !== "SonyLiv");
+    m3uStr = '#EXTM3U x-tvg-url="https://raw.githubusercontent.com/mitthu786/tvepg/main/tataplay/epg.xml.gz"\n\n';
 
-        // Generate M3U playlist
-        let m3uStr = epgGuide;
-
-        // Append SonyLiv channels
-        sonyLivChannels.forEach(channel => {
-            m3uStr += `#EXTINF:-1 tvg-id="${channel.id}" group-title="${channel.group_title}" tvg-logo="${channel.tvg_logo}", ${channel.name}\n`;
-            m3uStr += '#KODIPROP:inputstream.adaptive.license_type=clearkey\n';
-            m3uStr += `#KODIPROP:inputstream.adaptive.license_key=${channel.clearkey}\n`;
-            m3uStr += `#EXTVLCOPT:http-user-agent=${channel.stream_headers}\n`;
-            m3uStr += `#EXTHTTP:{"cookie":"${channel.hma}"}\n`;
-            m3uStr += `${channel.stream_url}|cookie:${channel.hma}\n\n`;
-        });
-
-        // Append other channels
-        otherChannels.forEach(channel => {
-            m3uStr += `#EXTINF:-1 tvg-id="${channel.id}" group-title="${channel.group_title}" tvg-logo="${channel.tvg_logo}", ${channel.name}\n`;
-            m3uStr += '#KODIPROP:inputstream.adaptive.license_type=clearkey\n';
-            m3uStr += `#KODIPROP:inputstream.adaptive.license_key=${channel.clearkey}\n`;
-            m3uStr += `#EXTVLCOPT:http-user-agent=${channel.stream_headers}\n`;
-            m3uStr += `#EXTHTTP:{"cookie":"${channel.hma}"}\n`;
-            m3uStr += `${channel.stream_url}|cookie:${channel.hma}\n\n`;
-        });
-
-        console.log('M3U playlist generated successfully');
-        return m3uStr;
-    } catch (error) {
-        console.error('Error generating M3U playlist:', error);
-        return ''; // Return empty string in case of error
+    for (let i = 0; i < chansList.length; i++) {
+        m3uStr += `#EXTINF:-1 tvg-id="${chansList[i].id}" group-title="${chansList[i].group_title}", tvg-logo="https://mediaready.videoready.tv/tatasky-epg/image/fetch/f_auto,fl_lossy,q_auto,h_250,w_250/${chansList[i].tvg_logo}", ${chansList[i].name}\n`;
+        m3uStr += '#KODIPROP:inputstream.adaptive.license_type=clearkey\n';
+        m3uStr += `#KODIPROP:inputstream.adaptive.license_key=${chansList[i].clearkey}\n`;
+        m3uStr += `#EXTVLCOPT:http-user-agent=${chansList[i].stream_headers}\n`;
+        m3uStr += `#EXTHTTP:{"cookie":"${chansList[i].hma}"}\n`;
+        m3uStr += `${chansList[i].stream_url}|cookie:${chansList[i].hma}\n\n`;
     }
+
+    console.log('all done!');
+    return m3uStr;
 };
 
 export default async function handler(req, res) {
-    try {
-        const m3uString = await generateM3u();
+    let uData = {
+        tsActive: true
+    };
 
-        if (m3uString) {
-            res.status(200).send(m3uString);
-        } else {
-            res.status(500).send('Failed to generate M3U playlist');
-        }
-    } catch (error) {
-        console.error('API request failed:', error);
-        res.status(500).send('Internal Server Error');
+    if (uData.tsActive) {
+        let m3uString = await generateM3u(uData);
+        res.status(200).send(m3uString);
+    } else {
+        res.status(404).send("TS is not active");
     }
 }
