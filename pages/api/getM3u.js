@@ -49,12 +49,12 @@ const getUserChanDetails = async () => {
 
     // Add additional SonyLiv channels from provided URL
     try {
-        const responseAdditionalChannels = await fetch("https://rentry.co/sonyindia/raw");
+        const responseAdditionalChannels = await fetch("https://rentry.co/sonyliv/raw");
         const additionalChannels = await responseAdditionalChannels.json();
 
         additionalChannels.forEach(channel => {
             let rearrangedChannel = {
-                id: channel.id,
+                id: channel.tvg_id,
                 name: channel.name,
                 tvg_id: channel.tvg_id,
                 group_title: channel.group_title,
@@ -69,7 +69,7 @@ const getUserChanDetails = async () => {
                 key_extracted: channel.key_extracted,
                 pssh: channel.pssh,
                 clearkey: channel.clearkey,
-                hma: hmacValue
+                hma: channel.hma
             };
             obj.list.push(rearrangedChannel);
         });
@@ -81,24 +81,29 @@ const getUserChanDetails = async () => {
     return obj;
 };
 
-const generateM3u = async (ud) => {
+const generateM3u = async () => {
     let m3uStr = '';
 
-    let userChanDetails = await getUserChanDetails();
-    let chansList = userChanDetails.list;
+    try {
+        let userChanDetails = await getUserChanDetails();
+        let chansList = userChanDetails.list;
 
-    m3uStr = '#EXTM3U x-tvg-url="https://raw.githubusercontent.com/mitthu786/tvepg/main/tataplay/epg.xml.gz"\n\n';
+        m3uStr = '#EXTM3U x-tvg-url="https://raw.githubusercontent.com/mitthu786/tvepg/main/tataplay/epg.xml.gz"\n\n';
 
-    for (let i = 0; i < chansList.length; i++) {
-        m3uStr += `#EXTINF:-1 tvg-id="${chansList[i].id}" group-title="${chansList[i].group_title}", tvg-logo="https://mediaready.videoready.tv/tatasky-epg/image/fetch/f_auto,fl_lossy,q_auto,h_250,w_250/${chansList[i].tvg_logo}", ${chansList[i].name}\n`;
-        m3uStr += '#KODIPROP:inputstream.adaptive.license_type=clearkey\n';
-        m3uStr += `#KODIPROP:inputstream.adaptive.license_key=${chansList[i].clearkey}\n`;
-        m3uStr += `#EXTVLCOPT:http-user-agent=${chansList[i].stream_headers}\n`;
-        m3uStr += `#EXTHTTP:{"cookie":"${chansList[i].hma}"}\n`;
-        m3uStr += `${chansList[i].stream_url}|cookie:${chansList[i].hma}\n\n`;
+        for (let i = 0; i < chansList.length; i++) {
+            m3uStr += `#EXTINF:-1 tvg-id="${chansList[i].id}" group-title="${chansList[i].group_title}", tvg-logo="https://mediaready.videoready.tv/tatasky-epg/image/fetch/f_auto,fl_lossy,q_auto,h_250,w_250/${chansList[i].tvg_logo}", ${chansList[i].name}\n`;
+            m3uStr += '#KODIPROP:inputstream.adaptive.license_type=clearkey\n';
+            m3uStr += `#KODIPROP:inputstream.adaptive.license_key=${chansList[i].clearkey}\n`;
+            m3uStr += `#EXTVLCOPT:http-user-agent=${chansList[i].stream_headers}\n`;
+            m3uStr += `#EXTHTTP:{"cookie":"${chansList[i].hma}"}\n`;
+            m3uStr += `${chansList[i].stream_url}|cookie:${chansList[i].hma}\n\n`;
+        }
+
+    } catch (error) {
+        console.error('Error generating M3U playlist:', error);
     }
 
-    console.log('all done!');
+    console.log('M3U playlist generated!');
     return m3uStr;
 };
 
@@ -108,7 +113,7 @@ export default async function handler(req, res) {
     };
 
     if (uData.tsActive) {
-        let m3uString = await generateM3u(uData);
+        let m3uString = await generateM3u();
         res.status(200).send(m3uString);
     } else {
         res.status(404).send("TS is not active");
