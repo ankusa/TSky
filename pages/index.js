@@ -27,11 +27,11 @@ export default function Home() {
         if (response.status === 200) {
           setDynamicUrl(response.data.link);
         } else {
-          throw new Error('Failed to shorten URL');
+          throw new Error(`Failed to shorten URL: ${response.status}`);
         }
       } catch (error) {
         console.error('Error generating short URL:', error);
-        setErr('Failed to generate short URL');
+        setErr('Failed to generate short URL. Please check your Bitly API token and network connection.');
       }
     }
 
