@@ -1,6 +1,6 @@
-import Head from 'next/head'; // Correct import statement for Head
+import Head from 'next/head';
 import { useEffect, useState } from 'react';
-import { Button, Form, Grid, Header, Message, Radio, Segment } from 'semantic-ui-react';
+import { Button, Grid, Header, Message, Segment } from 'semantic-ui-react';
 
 export default function Home() {
   const [dynamicUrl, setDynamicUrl] = useState("");
@@ -8,14 +8,27 @@ export default function Home() {
   const [err, setErr] = useState("");
 
   useEffect(() => {
-  const url = window.location.origin.replace('localhost', '127.0.0.1') +
-    '/api/getM3u?sid=' + 'tplay' +
-    '_A&id=' + '1422421949' +
-    '&sname=' + 'tataP' +
-    '&tkn=' + 'cheapgeeky.com';
+    const generateDynamicUrl = async () => {
+      const requestOptions = {
+        method: 'GET',
+        redirect: 'follow'
+      };
 
-  setDynamicUrl(url);
-}, []);
+      try {
+        const response = await fetch('/api/generateShortUrl', requestOptions);
+        if (!response.ok) {
+          throw new Error('Failed to generate short URL');
+        }
+        const result = await response.text();
+        setDynamicUrl(result);
+      } catch (error) {
+        console.error('Error generating short URL:', error);
+        setErr('Failed to generate short URL');
+      }
+    };
+
+    generateDynamicUrl();
+  }, []);
 
   function downloadM3uFile(filename) {
     setDownloading(true);
@@ -24,7 +37,7 @@ export default function Home() {
       redirect: 'follow'
     };
 
-    fetch(window.location.origin + '/api/getM3u?sid=' + 'tplay' + '_' + 'A' + '&id=' + '123456789' + '&sname=' + 'tataP' + '&tkn=' + 'xeotpxyastrplg', requestOptions)
+    fetch('/api/getM3u', requestOptions)
       .then(response => response.text())
       .then(result => {
         console.log(result);
@@ -32,8 +45,7 @@ export default function Home() {
         const blob = new Blob([data], { type: 'text/plain' });
         if (window.navigator.msSaveOrOpenBlob) {
           window.navigator.msSaveBlob(blob, filename);
-        }
-        else {
+        } else {
           const elem = window.document.createElement('a');
           elem.href = window.URL.createObjectURL(blob);
           elem.download = filename;
@@ -44,8 +56,9 @@ export default function Home() {
         setDownloading(false);
       })
       .catch(error => {
-        console.log('error', error);
+        console.error('Error downloading m3u file:', error);
         setDownloading(false);
+        setErr('Failed to download m3u file');
       });
   }
 
@@ -66,9 +79,8 @@ export default function Home() {
               <Header as={'h1'}>Generate Tata Play m3u</Header>
               <Message>
                 <Message.Header>Dynamic URL to get m3u: </Message.Header>
-                <img src={`https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(dynamicUrl)}&size=small`} alt="QR Code" />
                 <p>
-                  <a href={dynamicUrl}>{dynamicUrl}</a>
+                  <a href={dynamicUrl} target="_blank" rel="noreferrer">{dynamicUrl}</a>
                 </p>
                 <p>
                   You can use the above m3u URL in OTT Navigator or Tivimate app to watch all channels.
@@ -103,11 +115,11 @@ export default function Home() {
           <Grid.Column></Grid.Column>
           <Grid.Column textAlign='center' computer={8} tablet={12} mobile={16}>
             <a href="https://cheapgeeky.com" target="_blank" rel="noreferrer">Visit CheapGeeky</a>
-           <p>Made with ♥️ by Ankush.</p>
+            <p>Made with ♥️ by Ankush.</p>
           </Grid.Column>
           <Grid.Column></Grid.Column>
         </Grid.Row>
       </Grid>
     </div>
   )
-}
+  }
